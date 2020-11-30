@@ -1,0 +1,6 @@
+---
+title: "Food Price Index and Search Word from Anna's session"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
