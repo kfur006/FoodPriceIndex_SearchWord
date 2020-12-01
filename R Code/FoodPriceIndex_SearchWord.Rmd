@@ -12,6 +12,7 @@ library(tidyverse)
 library(gtrendsR)
 library(lubridate)
 library(here)
+library(zip)
 ```
 
 # Data Source
@@ -22,16 +23,21 @@ Search Data: Google Trend
 # Load Data
 ```{r}
 
-food <- read_csv(paste0(here(),"/Data/", "Food Price Index Selected Monthly Weighted Average Prices for New Zealand (Monthly).csv"),
-                 skip = 1) %>% 
-  rename(Time = X1) %>% 
-  filter(stringr::str_detect(Time, "20[:digit:][:digit:]M")) %>% 
-  separate(., Time, c("Year", "Months"), sep = "M") %>%
+temp <- tempfile()
+download.file("https://www.stats.govt.nz/assets/Uploads/Food-price-index/Food-price-index-October-2020/Download-data/food-price-index-october-2020-csv-tables.zip",temp)
+food <- read_csv(unz(temp, zip_list(temp)$filename[stringr::str_detect(zip_list(temp)$filename,"average")])) %>% 
+  select(Period, Data_value, Series_title_1) %>% 
+  mutate(Period = as.character(Period)) %>% 
+  separate(., Period, c("Year", "Months"), sep = "\\.") %>%
+  mutate(Months = if_else(Months == "1", "10", Months)) %>% 
   mutate(Time = paste(Year, Months, "01", sep = "-")) %>%
-  mutate(Time = as.Date(Time, format = "%Y-%m-%d")) %>% 
-  select(Time, `Bananas, 1kg`)
+  mutate(Time = as.Date(Time, format = "%Y-%m-%d"),
+         Food = substr(Series_title_1, 1, str_locate(Series_title_1, ",")[,1]-1))
+unlink(temp)
 
-search <- gtrends(keyword = "Banana", geo = "NZ")$interest_over_time %>% 
+foodName <- unique(food$Food)[stringr::str_detect(unique(food$Food), "Avocado")]
+
+search <- gtrends(keyword = foodName, geo = "NZ")$interest_over_time %>% 
   group_by(Time = floor_date(date, "month")) %>%
   summarize(averageHitsPerMonth = mean(hits))
 
@@ -44,16 +50,27 @@ data <- left_join(search,
 
 # Plot
 ```{r}
-food %>% select(Time, `Bananas, 1kg`) %>% 
-  ggplot(., aes(x = Time, y = `Bananas, 1kg`)) +
+food %>% filter(Food == foodName) %>% 
+  ggplot(., aes(x = Time, y = Data_value)) +
   geom_line()
 
-data %>% 
-  ggplot(., aes(x = `Bananas, 1kg`, y = averageHitsPerMonth)) +
-  geom_point()
+data %>% filter(Food == foodName) %>% 
+  ggplot(., aes(x = Data_value, y = averageHitsPerMonth)) +
+  geom_point() +
+  labs(title = foodName,
+       caption = "Source: NZ Stats",
+       x = "Price (NZ$)",
+       y = "Average Search per Month")
+
+```
+
+```{r}
 
 ```
 
 
+
 # Reference
 Food price index resource: http://infoshare.stats.govt.nz/survey-participants/survey-resources/fpi-resource.aspx#gsc.tab=0
+CSV File: https://www.stats.govt.nz/large-datasets/csv-files-for-download/
+Oc 2020: https://www.stats.govt.nz/assets/Uploads/Food-price-index/Food-price-index-October-2020/Download-data/food-price-index-october-2020-csv-tables.zip
