@@ -1,6 +1,59 @@
 ---
 title: "Food Price Index and Search Word from Anna's session"
-output: html_notebook
-editor_options: 
+output:
+  html_document:
+    df_print: paged
+editor_options:
   chunk_output_type: console
 ---
+
+```{r}
+library(tidyverse)
+library(gtrendsR)
+library(lubridate)
+library(here)
+```
+
+# Data Source
+Food Price Index Selected Monthly Weighted Average Prices for New Zealand (Monthly): http://infoshare.stats.govt.nz/infoshare/SelectVariables.aspx?pxID=9a605fc4-8202-45d6-9736-9d97ddffccdc
+Search Data: Google Trend
+
+
+# Load Data
+```{r}
+
+food <- read_csv(paste0(here(),"/Data/", "Food Price Index Selected Monthly Weighted Average Prices for New Zealand (Monthly).csv"),
+                 skip = 1) %>% 
+  rename(Time = X1) %>% 
+  filter(stringr::str_detect(Time, "20[:digit:][:digit:]M")) %>% 
+  separate(., Time, c("Year", "Months"), sep = "M") %>%
+  mutate(Time = paste(Year, Months, "01", sep = "-")) %>%
+  mutate(Time = as.Date(Time, format = "%Y-%m-%d")) %>% 
+  select(Time, `Bananas, 1kg`)
+
+search <- gtrends(keyword = "Banana", geo = "NZ")$interest_over_time %>% 
+  group_by(Time = floor_date(date, "month")) %>%
+  summarize(averageHitsPerMonth = mean(hits))
+
+data <- left_join(search,
+                  food,
+                  by = c("Time" = "Time"))
+
+
+```
+
+# Plot
+```{r}
+food %>% select(Time, `Bananas, 1kg`) %>% 
+  ggplot(., aes(x = Time, y = `Bananas, 1kg`)) +
+  geom_line()
+
+data %>% 
+  ggplot(., aes(x = `Bananas, 1kg`, y = averageHitsPerMonth)) +
+  geom_point()
+
+```
+
+
+# Reference
+Food price index resource: http://infoshare.stats.govt.nz/survey-participants/survey-resources/fpi-resource.aspx#gsc.tab=0
