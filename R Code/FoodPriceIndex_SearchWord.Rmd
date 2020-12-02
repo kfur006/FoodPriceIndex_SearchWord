@@ -50,17 +50,20 @@ data <- left_join(search,
 
 # Plot
 ```{r}
+title_word <- food %>% filter(Food == foodName) %>% select(Series_title_1) %>% unique()
 food %>% filter(Food == foodName) %>% 
   ggplot(., aes(x = Time, y = Data_value)) +
-  geom_line()
+  geom_line(size = 2) +
+  labs(title = title_word,
+       y = "Price (NZ$)")
 
 data %>% filter(Food == foodName) %>% 
-  ggplot(., aes(x = Data_value, y = averageHitsPerMonth)) +
+  ggplot(., aes(x = averageHitsPerMonth, y = Data_value)) +
   geom_point() +
   labs(title = foodName,
        caption = "Source: NZ Stats",
-       x = "Price (NZ$)",
-       y = "Average Search per Month")
+       y = "Price (NZ$)",
+       x = "Average Search per Month")
 
 ```
 
